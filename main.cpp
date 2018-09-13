@@ -8,7 +8,9 @@
 using namespace std;
 
 /// specify population size
-const int population_size = 8;
+const int population_size = 50;
+
+const bool verbose = false;
 
 /// chromsone
 typedef bitset<20> chromo_t;
@@ -66,6 +68,7 @@ vector< double > selection_probability()
     return probs;
 }
 
+
 /// select from population using roulette wheel probabilities
 int select(  const vector< double >& probs )
 {
@@ -109,18 +112,22 @@ void select_as_parent_test()
 }
 
 
-// mutate chromosome
+/** mutate chromosome
+    @param[in] c the chromosone to be mutated
+    @return the mutated chromosome
+
+    Each bit has a 0.01 chance of being flipped
+*/
 chromo_t mutate( chromo_t& c )
 {
     chromo_t child = c;
     for( int k = 0; k < 20; k++ )
     {
-        if( rand()%2 )
+        if( ! rand()%100 )
             child[k] = ! child[k];
     }
     return child;
 }
-
 
 // Display population
 void Display()
@@ -134,11 +141,14 @@ void Display()
         ftotal += f;
         if( f > maxf )
             maxf = f;
-//        cout << k <<" "
-//             <<population[k]
-//             <<" fitness " << f
-//             <<" prob "<<probs[k]
-//             << "\n";
+        if( verbose )
+        {
+            cout << k <<" "
+                 <<population[k]
+                 <<" fitness " << f
+                 <<" prob "<<probs[k]
+                 << "\n";
+        }
     }
     cout << "average fitness " << (double)ftotal/ population_size << " max " << maxf << "\n";
 
@@ -169,7 +179,9 @@ void breed( )
         int p =  select( probs );
         new_generation.push_back( population[ p ] );
         new_generation.push_back( mutate( population[ p ] ) );
-        //cout << "breed " << p <<" "<< fitness( population[ p ] ) <<" "<< probs[p] << "\n";
+
+        if( verbose )
+            cout << "breed " << p <<" "<< fitness( population[ p ] ) <<" "<< probs[p] << "\n";
     }
 
     population = new_generation;
@@ -189,7 +201,7 @@ int main()
     generate_initial_population();
 
     // for generations
-    for( int gen = 0; gen < 10000; gen++ )
+    for( int gen = 0; gen < 100000; gen++ )
     {
         breed();
     }
