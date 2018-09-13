@@ -8,7 +8,7 @@
 using namespace std;
 
 /// specify population size
-const int population_size = 50;
+const int population_size = 8;
 
 /// chromsone
 typedef bitset<20> chromo_t;
@@ -44,16 +44,6 @@ int fitness( chromo_t c  )
     return count;
 }
 
-/// inverse fitness
-int fitness_inv( chromo_t c  )
-{
-    int count = 0;
-    for( int k = 0; k<20; k++ )
-        if( ! c[ k ] )
-            count++;
-    return count;
-}
-
 /// Fitness proportionate selection, also known as roulette wheel selection
 /// https://en.wikipedia.org/wiki/Fitness_proportionate_selection
 vector< double > selection_probability()
@@ -76,33 +66,12 @@ vector< double > selection_probability()
     return probs;
 }
 
-/// inverse selection probability
-vector< double > selection_probability_inv()
-{
-    vector< double > probs;
-    double total = 0;
-    for( auto& c : population )
-    {
-        total += fitness_inv( c );
-    }
-    for( auto& c : population )
-    {
-        probs.push_back( fitness_inv( c ) / total );
-    }
-//    for( auto p : probs )
-//    {
-//        cout << p <<" ";
-//    }
-//    cout << "\n";
-    return probs;
-}
-
 /// select from population using roulette wheel probabilities
 int select(  const vector< double >& probs )
 {
     int r = rand() % 99;
     int limit = probs[0]*100;
-    for( int k = 0; k < probs.size(); k++ )
+    for( int k = 0; k < (int)probs.size(); k++ )
     {
         //cout << r <<" "<< limit << "\n";
         if( r < limit )
@@ -152,30 +121,11 @@ chromo_t mutate( chromo_t& c )
     return child;
 }
 
-// simulate breeding
-void breed( )
-{
-    // calculate selection probabilities
-    vector< double > probs = selection_probability();
-    vector< double > probs_inv = selection_probability_inv();
-
-    // half the population breeds
-    for( int k = 0; k < population_size / 2; k++ )
-    {
-        // parent selection based on fitness
-        int parent = select( probs );
-
-        // remove bases on inverse fitness
-        int dead = select( probs_inv );
-
-        // mutate and replace
-        population[ dead ] = mutate( population[ parent ] );
-    }
-}
 
 // Display population
 void Display()
 {
+    vector< double > probs = selection_probability();
     int ftotal = 0;
     int maxf   = 0;
     for( int k = 0; k < population_size; k++ )
@@ -184,8 +134,10 @@ void Display()
         ftotal += f;
         if( f > maxf )
             maxf = f;
-//        cout << population[k]
+//        cout << k <<" "
+//             <<population[k]
 //             <<" fitness " << f
+//             <<" prob "<<probs[k]
 //             << "\n";
     }
     cout << "average fitness " << (double)ftotal/ population_size << " max " << maxf << "\n";
@@ -204,6 +156,26 @@ void Display()
     }
 }
 
+// simulate breeding
+void breed( )
+{
+    // calculate selection probabilities
+    vector< double > probs = selection_probability();
+
+    vector< chromo_t > new_generation;
+    for( int k = 0; k < population_size / 2; k++ )
+    {
+        // parent selection based on fitness
+        int p =  select( probs );
+        new_generation.push_back( population[ p ] );
+        new_generation.push_back( mutate( population[ p ] ) );
+        //cout << "breed " << p <<" "<< fitness( population[ p ] ) <<" "<< probs[p] << "\n";
+    }
+
+    population = new_generation;
+
+    Display();
+}
 
 int main()
 {
@@ -219,9 +191,7 @@ int main()
     // for generations
     for( int gen = 0; gen < 10000; gen++ )
     {
-        Display();
-
-        breed(  );
+        breed();
     }
 
     return 0;
