@@ -15,9 +15,6 @@ const bool verbose = false;
 /// chromsone
 typedef bitset<20> chromo_t;
 
-/// a poulation of chromosones
-vector< chromo_t > population;
-
 /** A class that evolves */
 class cEvolver
 {
@@ -46,7 +43,7 @@ public:
     @return the new evolver with mutated chromosome
 
     Each bit has a 0.01 chance of being flipped
-*/
+    */
     cEvolver Mutate()
     {
         chromo_t child = myChromo;
@@ -57,12 +54,21 @@ public:
         }
         return cEvolver( child );
     }
+    void SelectionProbability( int total_population_fitness )
+    {
+        mySelectionProbability = ( (float) Fitness() ) / total_population_fitness;
+    }
+    float SelectionProbability() const
+    {
+        return mySelectionProbability;
+    }
     chromo_t Chromo()
     {
         return myChromo;
     }
 private:
     chromo_t myChromo;
+    float mySelectionProbability;
 };
 
 /** A class that contains an evolving population */
@@ -88,19 +94,18 @@ public:
             new_generation.push_back( myPopulation[ p ].Mutate() );
 
             if( verbose )
-                cout << "breed " << p <<" "<< myPopulation[ p ].Fitness() <<" "<< mySelectionProbability[p] << "\n";
+                cout << "breed " << p <<" "<< myPopulation[ p ].Fitness()
+                     <<" "<< myPopulation[ p ].SelectionProbability() << "\n";
         }
 
         myPopulation = new_generation;
-
-        Display();
     }
 
     void Display()
     {
         int ftotal = 0;
         int maxf   = 0;
-        for( int k = 0; k < myPopulation.size(); k++ )
+        for( int k = 0; k < (int)myPopulation.size(); k++ )
         {
             int f = myPopulation[ k ].Fitness();
             ftotal += f;
@@ -111,7 +116,7 @@ public:
                 cout << k <<" "
                      <<myPopulation[k].Chromo()
                      <<" fitness " << f
-                     <<" prob "<<mySelectionProbability[k]
+                     <<" prob "<<myPopulation[k].SelectionProbability()
                      << "\n";
             }
         }
@@ -122,38 +127,52 @@ public:
         {
             for( int k = 0; k < population_size; k++ )
             {
-                cout << population[k]
+                cout << myPopulation[k].Chromo()
                      <<" fitness " << myPopulation[k].Fitness()
                      << "\n";
             }
             exit( 0 );
         }
     }
+
+    int maxfitness()
+    {
+        int m = 0;
+        for( auto& c : myPopulation )
+        {
+            if( c.Fitness() > m )
+                m = c.Fitness();
+        }
+        return m;
+    }
 private:
     vector< cEvolver > myPopulation;
-    vector< double > mySelectionProbability;
 
     /// Fitness proportionate selection, also known as roulette wheel selection
     /// https://en.wikipedia.org/wiki/Fitness_proportionate_selection
     void SelectionProbability()
     {
-        mySelectionProbability.clear();
+        // sum of all population fitness
         double total = 0;
         for( auto& c : myPopulation )
         {
             total += c.Fitness();
         }
+
+        /* selection probability for an evolver is
+            evolver's fitness divided by sum of all population fitness
+        */
         for( auto& c : myPopulation )
         {
-            mySelectionProbability.push_back( c.Fitness() / total );
+            c.SelectionProbability( total );
         }
     }
     /// select from population using roulette wheel probabilities
     int Select()
     {
         int r = rand() % 99;
-        int limit = mySelectionProbability[0]*100;
-        for( int k = 0; k < (int)mySelectionProbability.size(); k++ )
+        int limit = myPopulation[0].SelectionProbability() * 100;
+        for( int k = 0; k < population_size; k++ )
         {
             //cout << r <<" "<< limit << "\n";
             if( r < limit )
@@ -161,9 +180,9 @@ private:
                 //cout << k << "\n";
                 return k;
             }
-            limit += mySelectionProbability[k+1] * 100;
+            limit += myPopulation[k].SelectionProbability() * 100;
         }
-        return mySelectionProbability.size() - 1;
+        return population_size - 1;
     }
 };
 
@@ -211,10 +230,25 @@ int main()
     // initial population
     cPopulation thePopulation( population_size );
 
+    thePopulation.Display();
+
     // for generations
     for( int gen = 0; gen < 100000; gen++ )
     {
         thePopulation.Breed();
+
+        if( gen % 100  == 1  )
+        {
+            cout << gen <<" ";
+            thePopulation.Display();
+        }
+
+        if( thePopulation.maxfitness() == 20 )
+        {
+            cout << gen <<" ";
+            thePopulation.Display();
+            return 0;
+        }
     }
 
     return 0;
