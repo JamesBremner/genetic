@@ -54,9 +54,9 @@ public:
         }
         return cEvolver( child );
     }
-    void SelectionProbability( int total_population_fitness )
+    void SelectionProbability( float prob )
     {
-        mySelectionProbability = ( (float) Fitness() ) / total_population_fitness;
+        mySelectionProbability = prob;
     }
     float SelectionProbability() const
     {
@@ -164,7 +164,7 @@ private:
         */
         for( auto& c : myPopulation )
         {
-            c.SelectionProbability( total );
+            c.SelectionProbability( c.Fitness() / total );
         }
     }
     /// select from population using roulette wheel probabilities
