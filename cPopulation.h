@@ -15,13 +15,13 @@ public:
     {
         int r = rand() % 99;
         int limit = myPopulation[0]->SelectionProbability() * 100;
-        for( int k = 0; k < (int)myPopulation.size(); k++ )
+        for( int k = 1; k < (int)myPopulation.size(); k++ )
         {
             //cout << r <<" "<< limit << "\n";
             if( r < limit )
             {
                 //cout << k << "\n";
-                return k;
+                return k-1;
             }
             limit += myPopulation[k]->SelectionProbability() * 100;
         }
