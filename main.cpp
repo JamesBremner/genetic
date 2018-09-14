@@ -4,6 +4,7 @@
 #include <time.h>       /* time */
 #include <vector>
 #include <algorithm>
+#include <memory>
 
 using namespace std;
 
@@ -12,10 +13,23 @@ const int population_size = 50;
 
 const bool verbose = false;
 
+class cEvolver;
+
 /// chromsone
 typedef bitset<20> chromo_t;
 
-/** A class that evolves */
+/// evolver
+typedef shared_ptr< cEvolver > evolver_t;
+
+/** A pure base class for classes that evolve towards a specialized goal
+
+    The speialized evolver needs to over-ride two methods
+
+    int Fitness()  calculates the relative fitness of the chromosome, according to specialized goal
+
+    evolver_t Mutate()  constructs new mutated child of specialized evolver
+
+ */
 class cEvolver
 {
 public:
@@ -30,21 +44,38 @@ public:
 
     }
 
-    /// calculate fitnesss by counting set bits in chromo
-    int Fitness()
+    /** calculate fitness
+        @return relative fitness, a positive integer, more fit is larger
+
+        This must be over-ridden in a specialized evolver
+        to calculate the fitness from the chromosone
+        according to the goalof the specialized evolver
+    */
+    virtual int Fitness() = 0;
+
+    /** Construct a mutated child of specialized evolver
+        @return shared pointer to mutated child
+
+        This must be over-ridden in a specialized evolver
+        to construct a virtual pointer to a newly constructed specialized evolver
+
+        The code should look like this:
+
+    <pre>
+    evolver_t Mutate()
     {
-        int count = 0;
-        for( int k = 0; k<20; k++ )
-            if( myChromo[ k ] )
-                count++;
-        return count;
+        return evolver_t( new MySpecialzedEvolver( MutateChromo() ) );
     }
+    </pre>
+    */
+    virtual evolver_t Mutate() = 0;
+
     /** mutate chromosome
     @return the new evolver with mutated chromosome
 
     Each bit has a 0.01 chance of being flipped
     */
-    cEvolver Mutate()
+    chromo_t MutateChromo() const
     {
         chromo_t child = myChromo;
         for( int k = 0; k < 20; k++ )
@@ -52,7 +83,7 @@ public:
             if( ! rand()%100 )
                 child[k] = ! child[k];
         }
-        return cEvolver( child );
+        return child;
     }
     void SelectionProbability( float prob )
     {
@@ -66,8 +97,9 @@ public:
     {
         return myChromo;
     }
-private:
+protected:
     chromo_t myChromo;
+private:
     float mySelectionProbability;
 };
 
@@ -75,27 +107,27 @@ private:
 class cPopulation
 {
 public:
-    cPopulation( int s )
-        : myPopulation( s )
-    {
 
+    void Add( evolver_t e )
+    {
+        myPopulation.push_back( e );
     }
     void Breed()
     {
         // calculate selection probabilities
         SelectionProbability();
 
-        vector< cEvolver > new_generation;
+        vector< evolver_t > new_generation;
         for( int k = 0; k < population_size / 2; k++ )
         {
             // parent selection based on fitness
             int p =  Select();
             new_generation.push_back( myPopulation[ p ] );
-            new_generation.push_back( myPopulation[ p ].Mutate() );
+            new_generation.push_back( myPopulation[ p ]->Mutate() );
 
             if( verbose )
-                cout << "breed " << p <<" "<< myPopulation[ p ].Fitness()
-                     <<" "<< myPopulation[ p ].SelectionProbability() << "\n";
+                cout << "breed " << p <<" "<< myPopulation[ p ]->Fitness()
+                     <<" "<< myPopulation[ p ]->SelectionProbability() << "\n";
         }
 
         myPopulation = new_generation;
@@ -107,16 +139,16 @@ public:
         int maxf   = 0;
         for( int k = 0; k < (int)myPopulation.size(); k++ )
         {
-            int f = myPopulation[ k ].Fitness();
+            int f = myPopulation[ k ]->Fitness();
             ftotal += f;
             if( f > maxf )
                 maxf = f;
             if( verbose )
             {
                 cout << k <<" "
-                     <<myPopulation[k].Chromo()
+                     <<myPopulation[k]->Chromo()
                      <<" fitness " << f
-                     <<" prob "<<myPopulation[k].SelectionProbability()
+                     <<" prob "<<myPopulation[k]->SelectionProbability()
                      << "\n";
             }
         }
@@ -127,8 +159,8 @@ public:
         {
             for( int k = 0; k < population_size; k++ )
             {
-                cout << myPopulation[k].Chromo()
-                     <<" fitness " << myPopulation[k].Fitness()
+                cout << myPopulation[k]->Chromo()
+                     <<" fitness " << myPopulation[k]->Fitness()
                      << "\n";
             }
             exit( 0 );
@@ -138,15 +170,15 @@ public:
     int maxfitness()
     {
         int m = 0;
-        for( auto& c : myPopulation )
+        for( auto c : myPopulation )
         {
-            if( c.Fitness() > m )
-                m = c.Fitness();
+            if( c->Fitness() > m )
+                m = c->Fitness();
         }
         return m;
     }
 private:
-    vector< cEvolver > myPopulation;
+    vector< evolver_t > myPopulation;
 
     /// Fitness proportionate selection, also known as roulette wheel selection
     /// https://en.wikipedia.org/wiki/Fitness_proportionate_selection
@@ -154,24 +186,24 @@ private:
     {
         // sum of all population fitness
         double total = 0;
-        for( auto& c : myPopulation )
+        for( auto c : myPopulation )
         {
-            total += c.Fitness();
+            total += c->Fitness();
         }
 
         /* selection probability for an evolver is
             evolver's fitness divided by sum of all population fitness
         */
-        for( auto& c : myPopulation )
+        for( auto c : myPopulation )
         {
-            c.SelectionProbability( c.Fitness() / total );
+            c->SelectionProbability( c->Fitness() / total );
         }
     }
     /// select from population using roulette wheel probabilities
     int Select()
     {
         int r = rand() % 99;
-        int limit = myPopulation[0].SelectionProbability() * 100;
+        int limit = myPopulation[0]->SelectionProbability() * 100;
         for( int k = 0; k < population_size; k++ )
         {
             //cout << r <<" "<< limit << "\n";
@@ -180,14 +212,52 @@ private:
                 //cout << k << "\n";
                 return k;
             }
-            limit += myPopulation[k].SelectionProbability() * 100;
+            limit += myPopulation[k]->SelectionProbability() * 100;
         }
         return population_size - 1;
     }
 };
 
+/** An example specialized evolver
 
+    This is an example of how to specialize an evolver for a particular goal,
+    in this case setting every bit in the chromosome.
+*/
+class cBitCounter : public cEvolver
+{
+public:
 
+    /// Construct new bit counter with random chromosome
+    cBitCounter()
+    : cEvolver()
+    {
+
+    }
+
+    /// Construc new bit counter with specified chromosome
+    cBitCounter( chromo_t c )
+    : cEvolver( c )
+    {
+
+    }
+
+    /// Calculate relative fitness by counting set bits
+    int Fitness()
+    {
+        int count = 0;
+        for( int k = 0; k<20; k++ )
+            if( myChromo[ k ] )
+                count++;
+        return count;
+    }
+
+    /// Construct mutated child
+    evolver_t Mutate()
+    {
+        return evolver_t( new cBitCounter( MutateChromo() ) );
+    }
+
+};
 
 
 /// test roulette wheel selection
@@ -227,22 +297,30 @@ int main()
     // test the roulette wheel
     //select_as_parent_test();
 
-    // initial population
-    cPopulation thePopulation( population_size );
+    // initial population of BitCounter evolvers
+    cPopulation thePopulation;
+    for( int k = 0; k < population_size; k++ )
+    {
+        // replace this with your own specialized evolver!
+        thePopulation.Add( evolver_t( new cBitCounter ));
+    }
 
     thePopulation.Display();
 
     // for generations
     for( int gen = 0; gen < 100000; gen++ )
     {
+        // evolve!
         thePopulation.Breed();
 
-        if( gen % 100  == 1  )
+        // display results every 1000 generations
+        if( gen % 1000  == 1  )
         {
             cout << gen <<" ";
             thePopulation.Display();
         }
 
+        // check if goal has been achieved
         if( thePopulation.maxfitness() == 20 )
         {
             cout << gen <<" ";
