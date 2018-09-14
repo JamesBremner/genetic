@@ -32,6 +32,7 @@
 			<Add option="-Wall" />
 			<Add option="-std=c++11" />
 			<Add option="-fexceptions" />
+			<Add directory="../include" />
 		</Compiler>
 		<Unit filename="main.cpp" />
 		<Extensions>
